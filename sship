@@ -1,0 +1,67 @@
+#!/bin/sh -e
+
+if [ -z "${SSHIP_HOME}" ]; then
+  SSHIP_HOME="${HOME}/.local/share/sship"
+fi
+TMP_DIR=""
+DESTINATION="${1}"
+
+__log() {
+	if [ -n "${SSHIP_SILENT}" ]; then
+		return
+	fi
+	_log_lvl="${1:-INFO }"
+	if [ -z "${SSHIP_DEBUG}" ] && [ "${_log_lvl}" = "DEBUG" ]; then
+		return
+	fi
+
+	shift
+	echo "[$(date -Iseconds)][sship][${_log_lvl}] ${*}"
+}
+
+alias debug='__log "DEBUG"'
+alias info='__log "INFO "'
+alias error='__log "ERROR"'
+
+clean_tmp() {
+	debug "cleaning up tmp dir"
+	test -d "${TMP_DIR}" && rm -rf "${TMP_DIR}" || true
+}
+
+fail() {
+	error "${@}"
+	clean_tmp
+	exit 1
+}
+
+info "#=======#"
+info "# sship #"
+info "#=======#"
+
+debug "invoked as '${0} ${*}'"
+
+debug "checking destination: '${DESTINATION}'"
+test -n "${DESTINATION}" || fail "no destination provided"
+
+debug "checking SSHIP_HOME: '${SSHIP_HOME}'"
+test -d "${SSHIP_HOME}" || fail "SSHIP_HOME (${SSHIP_HOME}) does not exist"
+
+debug "setting up temporary directory"
+TMP_DIR="$(mktemp -d)"
+debug "temporary directory at '${TMP_DIR}'"
+
+info "establishing session, you might be prompted to authenticate"
+ssh -o RemoteCommand=none "${@}" true > /dev/null 2> "${TMP_DIR}/ssh01.err" || \
+	fail "failed to connect: $(cat "${TMP_DIR}/ssh01.err")"
+
+if ! ssh -o RemoteCommand=none "${@}" test -f '~/.sship_uploaded' > /dev/null 2> /dev/null; then
+	info "uploading files..."
+	scp -Cr "${SSHIP_HOME}/." "${DESTINATION}:"
+	ssh -o RemoteCommand=none "${@}" touch '~/.sship_uploaded'
+else
+	debug "we are already uploaded"
+fi
+
+clean_tmp
+info "dropping you into SSH..."
+exec ssh "${@}"

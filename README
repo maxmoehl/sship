@@ -1,0 +1,48 @@
+#=======#
+# sship #
+#=======#
+
+A script to automatically upload files to the home directory on a remote machine before opening
+the interactive SSH session.
+
+This tool was created because its author frequently has to log in to jump hosts to access certain
+systems. Those jump hosts do not have a persistent home partition and lack even the most common
+aliases.
+
+# Installation #
+
+Copy the script to a directory which is in your $PATH.
+
+# Configuration #
+
+Some very basic configuration is available via environment variables:
+
+  SSHIP_HOME  : Directory to upload.
+  SSHIP_DEBUG : Enabled debug output.
+  SSHIP_SILENT: Disable all log out (takes precedence over SSHIP_DEBUG).
+
+The files to be uploaded are taken from ~/.local/share/sship. The directory is uploaded as-is to
+the home directory of the user on the remote system.
+
+It is recommended to configure the Control* parameters of your OpenSSH client to prevent frequent
+prompts for authentication / passphrases. Copy-paste if you're lazy:
+
+  ServerAliveInterval 60
+  ControlMaster auto
+  ControlPath ~/.ssh/master-%r@%h:%p
+  ControlPersist yes
+
+# Usage #
+
+  sship DESTINATION
+
+The script does not allow any custom SSH options on the command line, the user is expected to
+provide those via ssh_config(5). Consequently it is not possible to execute one-of commands using
+this script, only interactive shell sessions are supported.
+
+# Troubleshooting #
+
+1. sship is not uploading my new files!
+
+If you previously uploaded your files, sship will create a .sship_uploaded file. As long as that
+file exists it won't upload again. If still want to upload make sure to first delete that file.
